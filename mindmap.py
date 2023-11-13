@@ -1,3 +1,6 @@
+# Double-click to create new node. 
+# Double-click on node to create child node for it.
+
 import tkinter as tk
 from tkinter import simpledialog
 
@@ -7,6 +10,7 @@ class MindMapNode:
         self.text = text
         self.x = x
         self.y = y
+        self.lines = []
         self.render()
         self.drag_data = {"x": 0, "y": 0, "item": None}
 
@@ -15,13 +19,16 @@ class MindMapNode:
         self.canvas.tag_bind(self.id, "<ButtonPress-1>", self.on_drag_start)
         self.canvas.tag_bind(self.id, "<ButtonRelease-1>", self.on_drag_stop)
         self.canvas.tag_bind(self.id, "<B1-Motion>", self.on_drag)
+        #self.canvas.tag_bind(self.id, "<ButtonPress-3>", self.on_select)
+        self.canvas.tag_bind(self.id, "<Double-Button-1>", self.on_select)
 
     def connect(self, node):
-        self.canvas.create_line(self.x, self.y, node.x, node.y, arrow=tk.LAST, fill="blue", width=2)
+        line = self.canvas.create_line(self.x, self.y, node.x, node.y, arrow=tk.LAST, fill="blue", width=2)
+        self.lines.append(line)
+        node.lines.append(line)
 
     def on_drag_start(self, event):
-        item = self.canvas.find_closest(event.x, event.y)[0]
-        self.drag_data["item"] = item
+        self.drag_data["item"] = self.id
         self.drag_data["x"] = event.x
         self.drag_data["y"] = event.y
 
@@ -37,23 +44,39 @@ class MindMapNode:
         self.drag_data["x"] = event.x
         self.drag_data["y"] = event.y
         self.x, self.y = event.x, event.y
+        self.update_lines()
+
+    def update_lines(self):
+        for line in self.lines:
+            coords = self.canvas.coords(line)
+            if coords[0] == self.x and coords[1] == self.y:
+                self.canvas.coords(line, self.x, self.y, coords[2], coords[3])
+            else:
+                self.canvas.coords(line, coords[0], coords[1], self.x, self.y)
+
+    def on_select(self, event):
+        self.canvas.select_node = self
+        # Optionally, highlight the selected node
+        self.canvas.itemconfig(self.id, fill="red")  # Change color to indicate selection
+
 
 class MindMapApp:
     def __init__(self, root):
         self.root = root
-        self.canvas = tk.Canvas(root, width=800, height=600, bg='yellow')
+        self.canvas = tk.Canvas(root, width=800, height=600, bg='white')
         self.canvas.pack(padx=10, pady=10)
         self.nodes = []
-        self.canvas.bind("<Button-1>", self.create_node)
+        self.canvas.bind("<Double-Button-1>", self.create_node)
+        self.canvas.select_node = None
 
     def create_node(self, event):
         text = simpledialog.askstring("Input", "Enter node text", parent=self.root)
         if text:
             node = MindMapNode(self.canvas, text, event.x, event.y)
-            if self.nodes:
-                last_node = self.nodes[-1]
-                last_node.connect(node)
+            if self.canvas.select_node:
+                self.canvas.select_node.connect(node)
             self.nodes.append(node)
+            self.canvas.select_node = None
 
 root = tk.Tk()
 app = MindMapApp(root)
