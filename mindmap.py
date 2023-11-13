@@ -2,7 +2,8 @@
 # Double-click on node to create child node for it.
 
 import tkinter as tk
-from tkinter import simpledialog
+from tkinter import simpledialog, ttk
+import json
 
 class MindMapNode:
     def __init__(self, canvas, text, x, y):
@@ -15,7 +16,7 @@ class MindMapNode:
         self.drag_data = {"x": 0, "y": 0, "item": None}
 
     def render(self):
-        self.id = self.canvas.create_text(self.x, self.y, text=self.text, fill="black", font=('Arial', 16), tags="node")
+        self.id = self.canvas.create_text(self.x, self.y, text=self.text, fill="black", font=('Arial', 20, 'bold'), tags="node")
         self.canvas.tag_bind(self.id, "<ButtonPress-1>", self.on_drag_start)
         self.canvas.tag_bind(self.id, "<ButtonRelease-1>", self.on_drag_stop)
         self.canvas.tag_bind(self.id, "<B1-Motion>", self.on_drag)
@@ -92,6 +93,17 @@ class MindMapNode:
         self.canvas.itemconfig(self.id, fill="red")  # Change color to indicate selection
 
 
+
+    def get_connected_nodes(self, nodes):
+        connected_nodes = []
+        for line in self.lines:
+            coords = self.canvas.coords(line)
+            for node in nodes:
+                if node.id != self.id and (node.x, node.y) in [(coords[0], coords[1]), (coords[2], coords[3])]:
+                    connected_nodes.append(node)
+        return connected_nodes
+
+
 class MindMapApp:
     def __init__(self, root):
         self.root = root
@@ -100,8 +112,14 @@ class MindMapApp:
         self.nodes = []
         self.canvas.bind("<Double-Button-1>", self.create_node)
         self.canvas.select_node = None
+        save_button = tk.Button(root, text="Save Mind Map", command=self.save_mind_map)
+        save_button.pack(side=tk.LEFT, padx=(10, 0))
+
+        load_button = tk.Button(root, text="Load Mind Map", command=self.load_mind_map)
+        load_button.pack(side=tk.LEFT)
 
     def create_node(self, event):
+
         text = simpledialog.askstring("Input", "Enter node text", parent=self.root)
         if text:
             node = MindMapNode(self.canvas, text, event.x, event.y)
@@ -109,6 +127,33 @@ class MindMapApp:
                 self.canvas.select_node.connect(node)
             self.nodes.append(node)
             self.canvas.select_node = None
+
+    def save_mind_map(self):
+        mind_map_data = []
+        for node in self.nodes:
+            node_data = {
+                'text': node.text,
+                'x': node.x,
+                'y': node.y,
+                'connections': [self.nodes.index(n) for n in node.get_connected_nodes(self.nodes)]
+            }
+            mind_map_data.append(node_data)
+
+        with open('mind_map.json', 'w') as file:
+            json.dump(mind_map_data, file)
+
+    def load_mind_map(self):
+        with open('mind_map.json', 'r') as file:
+            mind_map_data = json.load(file)
+
+        self.nodes = []
+        for node_data in mind_map_data:
+            node = MindMapNode(self.canvas, node_data['text'], node_data['x'], node_data['y'])
+            self.nodes.append(node)
+
+        for i, node_data in enumerate(mind_map_data):
+            for conn_index in node_data['connections']:
+                self.nodes[i].connect(self.nodes[conn_index])
 
 root = tk.Tk()
 app = MindMapApp(root)
