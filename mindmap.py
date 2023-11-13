@@ -23,9 +23,41 @@ class MindMapNode:
         self.canvas.tag_bind(self.id, "<Double-Button-1>", self.on_select)
 
     def connect(self, node):
-        line = self.canvas.create_line(self.x, self.y, node.x, node.y, arrow=tk.LAST, fill="blue", width=2)
+        # Calculate the offset for the start and end points of the line
+        start_x, start_y = self.calculate_offset(self.x, self.y, node.x, node.y)
+        end_x, end_y = node.calculate_offset(node.x, node.y, self.x, self.y)
+
+        # Draw the line with the calculated offset
+        line = self.canvas.create_line(start_x, start_y, end_x, end_y, arrow=tk.LAST, fill="blue", width=2)
         self.lines.append(line)
         node.lines.append(line)
+
+    def calculate_offset(self, x1, y1, x2, y2):
+        bbox = self.canvas.bbox(self.id)
+        if not bbox:
+            return x1, y1
+
+        # Calculate the center of the bounding box
+        center_x = (bbox[0] + bbox[2]) / 2
+        center_y = (bbox[1] + bbox[3]) / 2
+
+        # Calculate the direction vector from the node to the target
+        direction_x = x2 - center_x
+        direction_y = y2 - center_y
+
+        # Normalize the direction vector
+        length = (direction_x**2 + direction_y**2)**0.5
+        if length == 0:
+            return x1, y1
+        direction_x /= length
+        direction_y /= length
+
+        # Calculate the offset point
+        offset_x = center_x + direction_x * (bbox[2] - bbox[0]) / 2
+        offset_y = center_y + direction_y * (bbox[3] - bbox[1]) / 2
+
+        return offset_x, offset_y
+
 
     def on_drag_start(self, event):
         self.drag_data["item"] = self.id
